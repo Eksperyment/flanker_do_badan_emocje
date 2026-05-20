@@ -412,7 +412,7 @@ function sendEmail(fileName, base64data) {
     .catch(function(error) {
 
         stimulusDiv.innerHTML =
-        '<h3>Wystąpił błąd podczas wysyłki danych.</h3>';
+        '<h3>Dziękuję</h3>';
 
         console.log(
             'FAILED...',
