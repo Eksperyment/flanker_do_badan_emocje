@@ -1,5 +1,4 @@
-# flanker_do_badan_emocje
-Zadanie typu Flankera do eksperymentu dotyczącego oceny fragmentów filmów i muzyki
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -67,4 +66,269 @@ Odpowiadaj możliwie szybko i dokładnie.
 <input type="text" id="participant-id" placeholder="Wpisz numer osoby badanej">
 
 <br>
+
+<button id="start-btn" type="button">
+Rozpocznij zadanie
+</button>
+
+</div>
+
+<div id="task-screen" style="display:none;">
+<div id="stimulus"></div>
+</div>
+
+</div>
+
+<script>
+
+// =========================
+// EMAILJS CONFIG
+// =========================
+
+emailjs.init({
+    publicKey: 'WPISZ_TUTAJ_PUBLIC_KEY'
+});
+
+const SERVICE_ID = 'WPISZ_TUTAJ_SERVICE_ID';
+const TEMPLATE_ID = 'WPISZ_TUTAJ_TEMPLATE_ID';
+const RECEIVER_EMAIL = 'twoj_mail@gmail.com';
+
+// =========================
+// TRIALS
+// =========================
+
+const trials = [
+{stimulus:'<<<<<',correct:'<',congruent:1},
+{stimulus:'>>>>>',correct:'>',congruent:1},
+{stimulus:'<<<<<',correct:'<',congruent:1},
+{stimulus:'>>>>>',correct:'>',congruent:1},
+{stimulus:'<<<<<',correct:'<',congruent:1},
+{stimulus:'>>>>>',correct:'>',congruent:1},
+{stimulus:'<<<<<',correct:'<',congruent:1},
+{stimulus:'>>>>>',correct:'>',congruent:1},
+{stimulus:'<<<<<',correct:'<',congruent:1},
+{stimulus:'>>>>>',correct:'>',congruent:1},
+
+{stimulus:'<<><<',correct:'>',congruent:0},
+{stimulus:'>><>>',correct:'<',congruent:0},
+{stimulus:'<<><<',correct:'>',congruent:0},
+{stimulus:'>><>>',correct:'<',congruent:0},
+{stimulus:'<<><<',correct:'>',congruent:0},
+{stimulus:'>><>>',correct:'<',congruent:0},
+{stimulus:'<<><<',correct:'>',congruent:0},
+{stimulus:'>><>>',correct:'<',congruent:0},
+{stimulus:'<<><<',correct:'>',congruent:0},
+{stimulus:'>><>>',correct:'<',congruent:0}
+];
+
+// =========================
+// SHUFFLE
+// =========================
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+shuffle(trials);
+
+// =========================
+// VARIABLES
+// =========================
+
+let currentTrial = 0;
+let startTime;
+
+const results = [];
+
+const instructionScreen =
+document.getElementById('instruction-screen');
+
+const taskScreen =
+document.getElementById('task-screen');
+
+const startBtn =
+document.getElementById('start-btn');
+
+const stimulusDiv =
+document.getElementById('stimulus');
+
+const participantInput =
+document.getElementById('participant-id');
+
+// =========================
+// START TASK
+// =========================
+
+// Obsługa kliknięcia przycisku
+startBtn.onclick = function() {
+
+    const participantID = participantInput.value.trim();
+
+    if (participantID === '') {
+        alert('Wpisz numer osoby badanej.');
+        return;
+    }
+
+    instructionScreen.style.display = 'none';
+    taskScreen.style.display = 'block';
+
+    nextTrial();
+};
+
+// Możliwość rozpoczęcia ENTEREM
+participantInput.addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        startBtn.click();
+    }
+});
+
+// =========================
+// NEXT TRIAL
+// =========================
+
+function nextTrial() {
+
+    if (currentTrial >= trials.length) {
+
+        stimulusDiv.innerHTML =
+        '<h3>Koniec zadania. Trwa zapis danych...</h3>';
+
+        exportToExcel();
+        return;
+    }
+
+    const trial = trials[currentTrial];
+
+    stimulusDiv.innerHTML = trial.stimulus;
+
+    startTime = performance.now();
+
+    function responseHandler(event) {
+
+        const key = event.key.toLowerCase();
+
+        if (key !== 'a' && key !== 'l') return;
+
+        document.removeEventListener('keydown', responseHandler);
+
+        const rt = Math.round(performance.now() - startTime);
+
+        let response;
+
+        if (key === 'a') {
+            response = '<';
+        } else {
+            response = '>';
+        }
+
+        const correct = response === trial.correct ? 1 : 0;
+
+        results.push({
+            participant: participantInput.value.trim(),
+            trial: currentTrial + 1,
+            stimulus: trial.stimulus,
+            congruent: trial.congruent,
+            correct_response: trial.correct,
+            participant_response: response,
+            accuracy: correct,
+            reaction_time_ms: rt
+        });
+
+        currentTrial++;
+
+        setTimeout(nextTrial, 300);
+    }
+
+    document.addEventListener('keydown', responseHandler);
+}
+
+// =========================
+// EXPORT EXCEL
+// =========================
+
+function exportToExcel() {
+
+    const worksheet = XLSX.utils.json_to_sheet(results);
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'FlankerData');
+
+    const excelBuffer = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array'
+    });
+
+    const blob = new Blob(
+        [excelBuffer],
+        {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+    );
+
+    const participantID = participantInput.value.trim();
+
+    const fileName = `Flanker_${participantID}.xlsx`;
+
+    // Pobranie lokalne
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    link.click();
+
+    // Konwersja do base64
+    const reader = new FileReader();
+
+    reader.onload = function() {
+
+        const base64data = reader.result.split(',')[1];
+
+        sendEmail(fileName, base64data);
+    };
+
+    reader.readAsDataURL(blob);
+}
+
+// =========================
+// SEND EMAIL
+// =========================
+
+function sendEmail(fileName, base64data) {
+
+    const templateParams = {
+        to_email: RECEIVER_EMAIL,
+        filename: fileName,
+        attachment: base64data
+    };
+
+    emailjs.send(
+        SERVICE_ID,
+        TEMPLATE_ID,
+        templateParams
+    )
+    .then(function(response) {
+
+        stimulusDiv.innerHTML =
+        '<h3>Dane zostały zapisane i wysłane.</h3>';
+
+        console.log('SUCCESS!', response.status, response.text);
+    })
+    .catch(function(error) {
+
+        stimulusDiv.innerHTML =
+        '<h3>Wystąpił błąd podczas wysyłki danych.</h3>';
+
+        console.log('FAILED...', error);
+    });
+}
+
+</script>
+
+</body>
 </html>
+
+  
+
