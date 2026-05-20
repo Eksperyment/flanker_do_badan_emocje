@@ -304,10 +304,13 @@ function sendEmail(fileName, base64data) {
         attachment: base64data
     };
 
-    emailjs.send(
-        SERVICE_ID,
-        TEMPLATE_ID,
-        templateParams
+   emailjs.init({
+    publicKey: 'm8HODmJkP33wKFLpw'
+});
+
+const SERVICE_ID = 'service_g0fmzvh';
+const TEMPLATE_ID = 'template_7iz1vj8';
+const RECEIVER_EMAIL = 'eksperyment.emocje.ip.umcs@gmail.com'
     )
     .then(function(response) {
 
